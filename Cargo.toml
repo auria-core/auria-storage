@@ -1,0 +1,16 @@
+[package]
+name = "auria-storage"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/auria-core/auria-runtime"
+authors = ["AURIA Team <auria@dust.llc>"]
+description = "AURIA Runtime Core - Shard storage and retrieval"
+
+[dependencies]
+auria-core = { path = "../auria-core", version = "0.1.0"}
+auria-security = { path = "../auria-security", version = "0.1.0"}
+anyhow = "1.0"
+thiserror = "1.0"
+lru = "0.12"
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "time", "signal"] }
