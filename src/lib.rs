@@ -1,3 +1,10 @@
+// File: lib.rs - This file is part of AURIA
+// Copyright (c) 2026 AURIA Developers and Contributors
+// Description:
+//     Shard storage and retrieval for AURIA Runtime Core.
+//     Implements a hierarchical storage system with LRU caching for efficient
+//     shard loading from VRAM, RAM, disk, and network storage tiers.
+//
 use auria_core::{AuriaError, AuriaResult, Shard, ShardId};
 use std::num::NonZeroUsize;
 
