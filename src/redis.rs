@@ -169,36 +169,89 @@ impl RedisStorage {
     }
 
     async fn fetch_from_redis(&self, key: &str) -> AuriaResult<Vec<u8>> {
-        Err(AuriaError::StorageError("Redis not implemented".to_string()))
+        let client = redis::Client::open(self.config.url.clone())
+            .map_err(|e| AuriaError::StorageError(format!("Failed to create Redis client: {}", e)))?;
+        let mut con = client.get_async_connection().await
+            .map_err(|e| AuriaError::StorageError(format!("Failed to connect to Redis: {}", e)))?;
+
+        redis::cmd("GET").arg(key).query_async::<_, Vec<u8>>(&mut con).await
+            .map_err(|e| AuriaError::StorageError(format!("Redis GET failed: {}", e)))
     }
 
-    async fn store_in_redis(&self, key: &str, data: &[u8], _ttl: Option<u64>) -> AuriaResult<()> {
-        let _ = (key, data);
-        Ok(())
+    async fn store_in_redis(&self, key: &str, data: &[u8], ttl: Option<u64>) -> AuriaResult<()> {
+        let client = redis::Client::open(self.config.url.clone())
+            .map_err(|e| AuriaError::StorageError(format!("Failed to create Redis client: {}", e)))?;
+        let mut con = client.get_async_connection().await
+            .map_err(|e| AuriaError::StorageError(format!("Failed to connect to Redis: {}", e)))?;
+
+        let mut cmd = redis::cmd("SET").arg(key).arg(data);
+        if let Some(ttl) = ttl {
+            cmd = cmd.arg("EX").arg(ttl);
+        }
+
+        cmd.query_async::<_, ()>(&mut con).await
+            .map_err(|e| AuriaError::StorageError(format!("Redis SET failed: {}", e)))
     }
 
     async fn delete_from_redis(&self, key: &str) -> AuriaResult<()> {
-        let _ = key;
-        Ok(())
+        let client = redis::Client::open(self.config.url.clone())
+            .map_err(|e| AuriaError::StorageError(format!("Failed to create Redis client: {}", e)))?;
+        let mut con = client.get_async_connection().await
+            .map_err(|e| AuriaError::StorageError(format!("Failed to connect to Redis: {}", e)))?;
+
+        redis::cmd("DEL").arg(key).query_async::<_, ()>(&mut con).await
+            .map_err(|e| AuriaError::StorageError(format!("Redis DEL failed: {}", e)))
     }
 
     async fn key_exists_in_redis(&self, key: &str) -> bool {
-        let _ = key;
-        false
+        let client = redis::Client::open(self.config.url.clone())
+            .map_err(|e| {
+                log::error!("Failed to create Redis client: {}", e);
+                return false;
+            })?;
+        let mut con = client.get_async_connection().await
+            .map_err(|e| {
+                log::error!("Failed to connect to Redis: {}", e);
+                return false;
+            })?;
+
+        match redis::cmd("EXISTS").arg(key).query_async::<_, i64>(&mut con).await {
+            Ok(count) => count > 0,
+            Err(e) => {
+                log::error!("Redis EXISTS failed: {}", e);
+                false
+            }
+        }
     }
 
-    async fn invalidate_by_pattern(&self, _pattern: &str) -> AuriaResult<u64> {
-        Ok(0)
+    async fn invalidate_by_pattern(&self, pattern: &str) -> AuriaResult<u64> {
+        let client = redis::Client::open(self.config.url.clone())
+            .map_err(|e| AuriaError::StorageError(format!("Failed to create Redis client: {}", e)))?;
+        let mut con = client.get_async_connection().await
+            .map_err(|e| AuriaError::StorageError(format!("Failed to connect to Redis: {}", e)))?;
+
+        redis::cmd("DEL").arg(pattern).query_async::<_, u64>(&mut con).await
+            .map_err(|e| AuriaError::StorageError(format!("Redis DEL pattern failed: {}", e)))
     }
 
     async fn get_ttl_from_redis(&self, key: &str) -> AuriaResult<i64> {
-        let _ = key;
-        Ok(-2)
+        let client = redis::Client::open(self.config.url.clone())
+            .map_err(|e| AuriaError::StorageError(format!("Failed to create Redis client: {}", e)))?;
+        let mut con = client.get_async_connection().await
+            .map_err(|e| AuriaError::StorageError(format!("Failed to connect to Redis: {}", e)))?;
+
+        redis::cmd("TTL").arg(key).query_async::<_, i64>(&mut con).await
+            .map_err(|e| AuriaError::StorageError(format!("Redis TTL failed: {}", e)))
     }
 
     async fn extend_ttl_in_redis(&self, key: &str, ttl_seconds: u64) -> AuriaResult<()> {
-        let _ = (key, ttl_seconds);
-        Ok(())
+        let client = redis::Client::open(self.config.url.clone())
+            .map_err(|e| AuriaError::StorageError(format!("Failed to create Redis client: {}", e)))?;
+        let mut con = client.get_async_connection().await
+            .map_err(|e| AuriaError::StorageError(format!("Failed to connect to Redis: {}", e)))?;
+
+        redis::cmd("EXPIRE").arg(key).arg(ttl_seconds).query_async::<_, ()>(&mut con).await
+            .map_err(|e| AuriaError::StorageError(format!("Redis EXPIRE failed: {}", e)))
     }
 }
 
