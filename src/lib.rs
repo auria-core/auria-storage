@@ -5,9 +5,6 @@
 //     Implements a hierarchical storage system with LRU caching for efficient
 //     shard loading from VRAM, RAM, disk, and network storage tiers.
 //
-pub mod s3;
-pub mod redis;
-pub mod sql;
 
 use auria_core::{AuriaError, AuriaResult, Shard, ShardId};
 use std::num::NonZeroUsize;
@@ -63,7 +60,7 @@ impl MultiTierStorage {
             let mut cache = self.ram_cache.write().await;
             if let Some(shard) = cache.get(&shard_id).cloned() {
                 let shard_clone = shard.clone();
-                self.vram_cache.write().await.put(shard_id, shard_clone);
+                self.vram_cache.write().await.put(shard_id.clone(), shard_clone);
                 return Ok(shard);
             }
         }
@@ -74,17 +71,19 @@ impl MultiTierStorage {
                 let path = path.clone();
                 drop(cache);
                 let shard = self.load_from_disk(&path).await?;
-                self.vram_cache.write().await.put(shard.shard_id, shard.clone());
+                self.vram_cache.write().await.put(shard.shard_id.clone(), shard.clone());
                 return Ok(shard);
             }
         }
 
-        Err(AuriaError::ShardNotFound(shard_id))
+        Err(AuriaError::ShardNotFound(shard_id.0))
     }
 
     pub async fn store_shard(&self, shard: Shard) -> AuriaResult<()> {
-        self.vram_cache.write().await.put(shard.shard_id, shard.clone());
-        self.ram_cache.write().await.put(shard.shard_id, shard.clone());
+        let shard_clone = shard.clone();
+        self.vram_cache.write().await.put(shard_clone.shard_id.clone(), shard_clone);
+        let shard_clone = shard.clone();
+        self.ram_cache.write().await.put(shard_clone.shard_id.clone(), shard_clone);
         self.save_to_disk(&shard).await?;
         Ok(())
     }
@@ -131,7 +130,7 @@ impl MultiTierStorage {
         tokio::fs::create_dir_all(&self.disk_root).await.ok();
         tokio::fs::write(&path, data).await
             .map_err(|e| AuriaError::StorageError(format!("Failed to write shard to disk: {}", e)))?;
-        self.disk_cache.write().await.insert(shard.shard_id, path);
+        self.disk_cache.write().await.insert(shard.shard_id.clone(), path);
         Ok(())
     }
 
@@ -170,11 +169,11 @@ impl Storage {
         if let Some(shard) = self.cache.get(&shard_id) {
             return Ok(shard.clone());
         }
-        Err(AuriaError::ShardNotFound(shard_id))
+        Err(AuriaError::ShardNotFound(shard_id.0))
     }
 
     pub fn store_shard(&mut self, shard: Shard) -> AuriaResult<()> {
-        self.cache.put(shard.shard_id, shard);
+        self.cache.put(shard.shard_id.clone(), shard);
         Ok(())
     }
 
