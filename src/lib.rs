@@ -154,14 +154,12 @@ pub struct StorageStats {
 
 pub struct Storage {
     cache: lru::LruCache<ShardId, Shard>,
-    max_items: usize,
 }
 
 impl Storage {
     pub fn new(max_items: usize) -> Self {
         Self {
             cache: lru::LruCache::new(NonZeroUsize::new(max_items).unwrap()),
-            max_items,
         }
     }
 
